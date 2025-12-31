@@ -45,15 +45,17 @@ export async function POST(req: NextRequest) {
         interface Settings {
             companyName: string;
             systemPrompt: string;
+            aiModel: string;
         }
         const settingsSnap = await db.collection("settings").doc("main").get();
         const settings = (settingsSnap.exists ? settingsSnap.data() : {
             companyName: "CoreAura",
-            systemPrompt: "Eres Lysandra, la asistente de IA de CoreAura. Eres profesional, eficiente y amable. Ayudas a los clientes a agendar citas y resolver dudas sobre tecnología. Usa las herramientas disponibles para consultar disponibilidad y agendar citas."
+            systemPrompt: "Eres Lysandra, la asistente de IA de CoreAura. Eres profesional, eficiente y amable. Ayudas a los clientes a agendar citas y resolver dudas sobre tecnología. Usa las herramientas disponibles para consultar disponibilidad y agendar citas.",
+            aiModel: "gemini-flash-latest"
         }) as Settings;
 
         // 4. Call Gemini
-        const model = getModel(settings.systemPrompt);
+        const model = getModel(settings.systemPrompt, settings.aiModel || "gemini-flash-latest");
         const chat = model.startChat({
             history: history,
             generationConfig: { maxOutputTokens: 500 },

@@ -7,9 +7,11 @@ export const geminiModel = genAI.getGenerativeModel({
     model: "gemini-2.0-flash",
 });
 
-export function getModel(systemInstruction?: string) {
+const DEFAULT_MODEL = "gemini-flash-latest";
+
+export function getModel(systemInstruction?: string, modelName: string = DEFAULT_MODEL) {
     return genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: modelName,
         systemInstruction: systemInstruction,
     });
 }
@@ -57,6 +59,21 @@ export const tools: Tool[] = [
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 } as any,
             },
+            {
+                name: "searchKnowledgeBase",
+                description: "Searches the company knowledge base for information about CoreAura's services, pricing, contact info, technologies, and more. Use this when the user asks about the company, services, pricing, or any business-related information.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        query: {
+                            type: "string",
+                            description: "The search query to find relevant information in the knowledge base.",
+                        },
+                    },
+                    required: ["query"],
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } as any,
+            },
         ],
     },
 ];
@@ -88,6 +105,31 @@ export async function executeToolCall(functionCall: { name: string; args: any })
                 createdAt: new Date().toISOString(),
             });
             return { success: true, appointmentId: docRef.id, message: `Appointment booked for ${name} on ${date}.` };
+        }
+
+        case "searchKnowledgeBase": {
+            const { query } = args;
+            const KnowledgeBase = (await import("./knowledge-base")).default;
+            const kb = await KnowledgeBase.getInstance();
+            const results = kb.search(query);
+
+            if (results.length === 0) {
+                return {
+                    found: false,
+                    message: "No encontré información específica sobre eso en mi base de conocimiento."
+                };
+            }
+
+            // Return top 3 most relevant results
+            const topResults = results.slice(0, 3);
+            return {
+                found: true,
+                results: topResults.map(r => ({
+                    category: r.category,
+                    content: r.content
+                })),
+                message: `Encontré ${results.length} resultado(s) relevante(s).`
+            };
         }
 
         default:
