@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebase-admin";
+export const dynamic = 'force-dynamic';
 import {
     Table,
     TableBody,
@@ -9,16 +10,30 @@ import {
     TableRow,
 } from "@/components/ui/table";
 
+interface Appointment {
+    id: string;
+    clientName: string;
+    date: string;
+    type: string;
+    status: string;
+}
+
 async function getAppointments() {
-    const snapshot = await db.collection("appointments").orderBy("date", "desc").get();
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    })) as any[];
+    if (!db) return [];
+    try {
+        const snapshot = await db.collection("appointments").orderBy("date", "desc").get();
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        })) as Appointment[];
+    } catch (error) {
+        console.error("Error fetching appointments:", error);
+        return [];
+    }
 }
 
 export default async function DashboardPage() {
-    const appointments = await getAppointments();
+    const appointments = db ? await getAppointments() : [];
 
     return (
         <div className="container mx-auto py-10">

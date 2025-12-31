@@ -1,11 +1,19 @@
-import { GoogleGenerativeAI, Tool, GenerateContentRequest } from "@google/generative-ai";
+import { GoogleGenerativeAI, Tool } from "@google/generative-ai";
 import { db } from "./firebase-admin";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export const geminiModel = genAI.getGenerativeModel({
-    model: "gemini-flash-latest",
+    model: "gemini-2.0-flash",
 });
+
+export function getModel(systemInstruction?: string) {
+    return genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: systemInstruction,
+    });
+}
+
 
 // Definition of tools (Function Calling)
 export const tools: Tool[] = [
@@ -23,6 +31,7 @@ export const tools: Tool[] = [
                         },
                     },
                     required: ["date"],
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 } as any,
             },
             {
@@ -45,6 +54,7 @@ export const tools: Tool[] = [
                         },
                     },
                     required: ["name", "date", "type"],
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 } as any,
             },
         ],
@@ -52,6 +62,7 @@ export const tools: Tool[] = [
 ];
 
 // Implementation of tools
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function executeToolCall(functionCall: { name: string; args: any }) {
     const { name, args } = functionCall;
 

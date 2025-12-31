@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import twilio from "twilio";
 import { db } from "@/lib/firebase-admin";
-import { geminiModel, tools, executeToolCall } from "@/lib/gemini";
+import { getModel, tools, executeToolCall } from "@/lib/gemini";
 import { Content, Part } from "@google/generative-ai";
 
 const MessagingResponse = twilio.twiml.MessagingResponse;
@@ -42,20 +42,26 @@ export async function POST(req: NextRequest) {
             }));
 
         // 3. System Prompt & Settings
+        interface Settings {
+            companyName: string;
+            systemPrompt: string;
+        }
         const settingsSnap = await db.collection("settings").doc("main").get();
-        const settings = settingsSnap.exists ? settingsSnap.data() : {
+        const settings = (settingsSnap.exists ? settingsSnap.data() : {
             companyName: "CoreAura",
             systemPrompt: "Eres Lysandra, la asistente de IA de CoreAura. Eres profesional, eficiente y amable. Ayudas a los clientes a agendar citas y resolver dudas sobre tecnología. Usa las herramientas disponibles para consultar disponibilidad y agendar citas."
-        };
+        }) as Settings;
 
         // 4. Call Gemini
-        const chat = geminiModel.startChat({
+        const model = getModel(settings.systemPrompt);
+        const chat = model.startChat({
             history: history,
             generationConfig: { maxOutputTokens: 500 },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             tools: tools as any, // Cast due to library type definitions sometimes being strict
         });
 
-        let result = await chat.sendMessage(body);
+        const result = await chat.sendMessage(body);
         let responseText = "";
 
         // 5. Handle Tool Calls
@@ -93,6 +99,7 @@ export async function POST(req: NextRequest) {
             headers: { "Content-Type": "text/xml" },
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         console.error("Webhook error:", error);
         const twiml = new MessagingResponse();
