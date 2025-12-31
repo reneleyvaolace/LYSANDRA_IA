@@ -1,0 +1,12 @@
+[dotenv@17.2.3] injecting env (7) from .env.local -- tip: ÔÜÖ´©Å  specify custom .env file path with { path: '/custom/path/.env' }
+Firebase initialized successfully with Project ID: lysandra-ai-d24d2
+[dotenv@17.2.3] injecting env (0) from .env.local -- tip: ­ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+--- TEST DE FIREBASE (FS) ---
+Intentando escribir en la colecci├│n 'settings'...
+ÔØî ERROR DETECTADO:
+7 PERMISSION_DENIED: Cloud Firestore API has not been used in project lysandra-ai-d24d2 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=lysandra-ai-d24d2 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.
+
+­ƒÆí SOLUCI├ôN: Necesitas activar Firestore en tu consola de Firebase.
+1. Ve a: https://console.firebase.google.com/project/lysandra-ai-d24d2/firestore
+2. Haz clic en 'Crear base de datos'.
+3. Selecciona una ubicaci├│n (ej. us-central1) y modo 'Producci├│n' o 'Prueba'.

@@ -1,0 +1,3 @@
+[dotenv@17.2.3] injecting env (7) from .env.local -- tip: ­ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+Respuesta: ┬íHola! ┬┐C├│mo est├ís? ┬┐En qu├® puedo ayudarte hoy?
+Ô£à MODELO gemini-flash-latest FUNCIONA!

@@ -1,0 +1,12 @@
+[dotenv@17.2.3] injecting env (7) from .env.local -- tip: ­ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+Firebase initialized successfully with Project ID: lysandra-ai-d24d2
+[dotenv@17.2.3] injecting env (0) from .env.local -- tip: ­ƒôí add observability to secrets: https://dotenvx.com/ops
+--- TEST DE FIREBASE (FS) ---
+Intentando escribir en la colecci├│n 'settings'...
+Intentando leer el documento...
+Ô£à ├ëXITO: Firebase conectado y operando.
+Datos: {
+  message: 'Firebase inicializado correctamente para Lysandra',
+  test: true,
+  timestamp: '2025-12-31T00:27:02.985Z'
+}
