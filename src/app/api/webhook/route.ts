@@ -8,15 +8,47 @@ const MessagingResponse = twilio.twiml.MessagingResponse;
 
 export async function POST(req: NextRequest) {
     try {
-        const formData = await req.formData();
-        const body = formData.get("Body")?.toString() || "";
-        const from = formData.get("From")?.toString() || ""; // whatsapp:+phoneNumber
+        let body = "";
+        let phoneNumber = "";
+        let isSimulator = false;
 
-        if (!from) {
-            return new NextResponse("Missing From", { status: 400 });
+        // Detectar si es JSON (WhatsApp/Simulador) o FormData (Twilio)
+        const contentType = req.headers.get("content-type") || "";
+
+        if (contentType.includes("application/json")) {
+            // Formato WhatsApp/Simulador (JSON)
+            const jsonData = await req.json();
+
+            // Extraer mensaje del formato de WhatsApp
+            const message = jsonData.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+            if (!message) {
+                return NextResponse.json({ error: "Invalid WhatsApp format" }, { status: 400 });
+            }
+
+            body = message.text?.body || "";
+            phoneNumber = message.from || "";
+            isSimulator = phoneNumber.includes("12345678") || phoneNumber.includes("simulator");
+
+        } else {
+            // Formato Twilio (FormData)
+            const formData = await req.formData();
+            body = formData.get("Body")?.toString() || "";
+            const from = formData.get("From")?.toString() || "";
+
+            if (!from) {
+                return new NextResponse("Missing From", { status: 400 });
+            }
+
+            phoneNumber = from.replace("whatsapp:", "");
+            isSimulator = false;
         }
 
-        const phoneNumber = from.replace("whatsapp:", "");
+        if (!body || !phoneNumber) {
+            return NextResponse.json({ error: "Missing body or phone number" }, { status: 400 });
+        }
+
+        console.log("📱 WhatsApp Message:", { phoneNumber, body, isSimulator });
+
         const conversationRef = db.collection("conversations").doc(phoneNumber);
 
         // 1. Check conversation status
@@ -124,21 +156,52 @@ MANEJO DE FECHAS Y HORAS:
         };
         await conversationRef.collection("history").add(aiMsg);
 
-        // 7. Respond to Twilio
-        const twiml = new MessagingResponse();
-        twiml.message(responseText);
-
-        return new NextResponse(twiml.toString(), {
-            headers: { "Content-Type": "text/xml" },
-        });
+        // 7. Responder según el tipo de cliente (simulador o WhatsApp real)
+        if (isSimulator) {
+            // Respuesta para el simulador (JSON)
+            return NextResponse.json({
+                success: true,
+                reply: responseText,
+                phoneNumber: phoneNumber
+            });
+        } else {
+            // Respuesta para WhatsApp/Twilio real (TwiML)
+            const twiml = new MessagingResponse();
+            twiml.message(responseText);
+            return new NextResponse(twiml.toString(), {
+                headers: { "Content-Type": "text/xml" },
+            });
+        }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-        console.error("Webhook error:", error);
-        const twiml = new MessagingResponse();
-        twiml.message("Lo siento, Lysandra está experimentando dificultades técnicas. Por favor intenta más tarde.");
-        return new NextResponse(twiml.toString(), {
-            headers: { "Content-Type": "text/xml" },
-        });
+        console.error("❌ Webhook error:", error);
+
+        // Retornar JSON para facilitar debugging
+        return NextResponse.json({
+            success: false,
+            error: error.message || "Error procesando mensaje",
+            reply: "Lo siento, estoy experimentando dificultades técnicas. Por favor intenta más tarde."
+        }, { status: 500 });
+    }
+}
+
+// Webhook verification para Meta/WhatsApp (GET request)
+export async function GET(req: NextRequest) {
+    const searchParams = req.nextUrl.searchParams;
+    const mode = searchParams.get("hub.mode");
+    const token = searchParams.get("hub.verify_token");
+    const challenge = searchParams.get("hub.challenge");
+
+    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "lysandra_verify_token";
+
+    console.log("🔍 Webhook Verification Request:", { mode, token, challenge });
+
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+        console.log("✅ Webhook verified successfully");
+        return new NextResponse(challenge, { status: 200 });
+    } else {
+        console.log("❌ Webhook verification failed");
+        return new NextResponse("Forbidden", { status: 403 });
     }
 }

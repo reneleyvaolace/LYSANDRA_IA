@@ -11,7 +11,8 @@ import {
     BrainCircuit,
     Terminal,
     LogOut,
-    Database
+    Database,
+    Smartphone
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -24,6 +25,7 @@ export default function DashboardLayout({
         { icon: LayoutDashboard, label: "Vista General", href: "/dashboard" },
         { icon: MessageSquare, label: "Conversaciones", href: "/dashboard/chats" },
         { icon: Terminal, label: "Laboratorio IA", href: "/dashboard/test" },
+        { icon: Smartphone, label: "Simulador WhatsApp", href: "/dashboard/whatsapp-simulator" },
         { icon: Calendar, label: "Citas Agendadas", href: "/dashboard" },
         { icon: BrainCircuit, label: "Entrenamiento IA", href: "/dashboard/training" },
         { icon: Database, label: "Base de Conocimiento", href: "/dashboard/knowledge" },
