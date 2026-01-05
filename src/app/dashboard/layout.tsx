@@ -12,8 +12,15 @@ import {
     Terminal,
     LogOut,
     Database,
-    Smartphone
+    Smartphone,
+    Bot,
+    Sparkles,
+    Zap,
+    Code,
+    Globe
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getCompanySettings } from "./settings/actions";
 
 export default function DashboardLayout({
     children,
@@ -21,6 +28,37 @@ export default function DashboardLayout({
     children: React.HTMLAttributes<HTMLDivElement>["children"];
 }) {
     const pathname = usePathname();
+    const [aiStatus, setAiStatus] = useState<{ provider: string; model: string }>({
+        provider: "gemini",
+        model: "gemini-2.0-flash"
+    });
+
+    useEffect(() => {
+        const fetchStatus = async () => {
+            try {
+                const settings = await getCompanySettings();
+                setAiStatus({
+                    provider: settings.aiProvider || "gemini",
+                    model: settings.aiModel || "gemini-flash-latest"
+                });
+            } catch (error) {
+                console.error("Error fetching AI status:", error);
+            }
+        };
+        fetchStatus();
+    }, [pathname]); // Recargar status al navegar
+
+    const providerConfig: Record<string, { label: string; color: string; icon: any }> = {
+        gemini: { label: "Google Gemini", color: "text-purple-400", icon: Zap },
+        openai: { label: "OpenAI ChatGPT", color: "text-cyan-400", icon: Bot },
+        grok: { label: "xAI Grok", color: "text-green-400", icon: Sparkles },
+        deepseek: { label: "DeepSeek", color: "text-blue-400", icon: Code },
+        qwen: { label: "Alibaba Qwen", color: "text-orange-400", icon: Globe }
+    };
+
+    const currentProvider = providerConfig[aiStatus.provider] || providerConfig.gemini;
+    const Icon = currentProvider.icon;
+
     const menuItems = [
         { icon: LayoutDashboard, label: "Vista General", href: "/dashboard" },
         { icon: MessageSquare, label: "Conversaciones", href: "/dashboard/chats" },
@@ -85,9 +123,13 @@ export default function DashboardLayout({
                 <header className="h-16 border-b border-white/5 bg-zinc-950/20 backdrop-blur-md flex items-center justify-between px-8">
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-zinc-500">Status:</span>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-xs font-medium text-green-400">Gemini-2.0-Flash Sincronizado</span>
+                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                            <Icon className={`w-3.5 h-3.5 ${currentProvider.color}`} />
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${currentProvider.color}`}>
+                                {aiStatus.model}
+                            </span>
+                            <span className="text-[10px] text-zinc-500 font-medium">| {currentProvider.label}</span>
                         </div>
                     </div>
 

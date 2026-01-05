@@ -92,11 +92,22 @@ export default function WhatsAppSimulatorPage() {
                     }]);
                 }
             } else {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.error || "No se pudo procesar el mensaje. Verifica la configuración de la IA.";
+
                 setMessages(prev => [...prev, {
                     role: "assistant",
-                    content: "⚠️ Error: No se pudo procesar el mensaje. Verifica que el servidor esté corriendo.",
+                    content: `⚠️ Error: ${errorMessage}`,
                     timestamp: new Date()
                 }]);
+
+                if (errorData.error?.includes("API Key")) {
+                    setMessages(prev => [...prev, {
+                        role: "assistant",
+                        content: "💡 Configura la API Key en la sección de Ajustes > IA & Modelos.",
+                        timestamp: new Date()
+                    }]);
+                }
             }
         } catch (error) {
             console.error('Error:', error);
@@ -215,8 +226,8 @@ export default function WhatsAppSimulatorPage() {
                             </div>
                             <div className={`max-w-[70%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                                 <div className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
-                                        ? 'bg-cyan-500 text-white rounded-tr-none'
-                                        : 'bg-zinc-800 text-zinc-200 rounded-tl-none border border-white/5'
+                                    ? 'bg-cyan-500 text-white rounded-tr-none'
+                                    : 'bg-zinc-800 text-zinc-200 rounded-tl-none border border-white/5'
                                     }`}>
                                     {msg.role === 'user' ? (
                                         msg.content

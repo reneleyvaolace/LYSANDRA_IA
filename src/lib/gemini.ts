@@ -9,8 +9,12 @@ export const geminiModel = genAI.getGenerativeModel({
 
 const DEFAULT_MODEL = "gemini-flash-latest";
 
-export function getModel(systemInstruction?: string, modelName: string = DEFAULT_MODEL) {
-    return genAI.getGenerativeModel({
+export function getModel(systemInstruction?: string, modelName: string = DEFAULT_MODEL, apiKey?: string) {
+    // Si se proporciona una API Key, crear una nueva instancia de GoogleGenerativeAI
+    // Si no, usar la instancia global con la key de .env
+    const ai = apiKey ? new GoogleGenerativeAI(apiKey) : genAI;
+
+    return ai.getGenerativeModel({
         model: modelName,
         systemInstruction: systemInstruction,
     });
