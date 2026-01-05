@@ -17,18 +17,32 @@ export async function POST(req: NextRequest) {
         }
 
         const phoneNumber = from.replace("whatsapp:", "");
+        const conversationRef = db.collection("conversations").doc(phoneNumber);
 
-        // 1. Save user message to Firestore
+        // 1. Check conversation status
+        const conversationSnap = await conversationRef.get();
+        const conversationData = conversationSnap.exists ? conversationSnap.data() : { status: "active" };
+
+        if (conversationData?.status === "human_needed") {
+            const twiml = new MessagingResponse();
+            // Don't respond automatically or send a "wait" message if already escalated
+            // Or maybe check if enough time has passed to reset?
+            // For now, let's just avoid AI interference if a human is requested.
+            return new NextResponse(twiml.toString(), {
+                headers: { "Content-Type": "text/xml" },
+            });
+        }
+
+        // 2. Save user message to Firestore
         const userMsg = {
             role: "user",
             content: body,
             timestamp: new Date().toISOString(),
         };
-        await db.collection("conversations").doc(phoneNumber).collection("history").add(userMsg);
+        await conversationRef.collection("history").add(userMsg);
 
-        // 2. Retrieve last 10 messages for context
-        const historySnapshot = await db.collection("conversations")
-            .doc(phoneNumber)
+        // 3. Retrieve last 10 messages for context
+        const historySnapshot = await conversationRef
             .collection("history")
             .orderBy("timestamp", "desc")
             .limit(10)
@@ -70,7 +84,7 @@ export async function POST(req: NextRequest) {
         const call = result.response.candidates?.[0].content.parts.find(p => p.functionCall);
 
         if (call && call.functionCall) {
-            const toolResult = await executeToolCall(call.functionCall);
+            const toolResult = await executeToolCall(call.functionCall, { phoneNumber });
 
             // Send result back to Gemini
             const toolResponse = await chat.sendMessage([{
@@ -81,17 +95,19 @@ export async function POST(req: NextRequest) {
             }]);
 
             responseText = toolResponse.response.text();
+
+            // If it was an escalation, we might want to append a specific note or just use AI text
         } else {
             responseText = result.response.text();
         }
 
-        // 6. Save AI response to Firestore
+        // 7. Save AI response to Firestore
         const aiMsg = {
             role: "model",
             content: responseText,
             timestamp: new Date().toISOString(),
         };
-        await db.collection("conversations").doc(phoneNumber).collection("history").add(aiMsg);
+        await conversationRef.collection("history").add(aiMsg);
 
         // 7. Respond to Twilio
         const twiml = new MessagingResponse();

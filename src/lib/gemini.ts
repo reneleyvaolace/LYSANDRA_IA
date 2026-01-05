@@ -71,7 +71,20 @@ export const tools: Tool[] = [
                         },
                     },
                     required: ["query"],
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } as any,
+            },
+            {
+                name: "escalateToHuman",
+                description: "Escalates the conversation to a human agent. Use this when the user explicitly asks to speak with a human, or when you cannot resolve their request after several attempts, or when you detect frustration.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        reason: {
+                            type: "string",
+                            description: "The reason for escalation (e.g., 'User asked for human', 'Query too complex', 'Technical issue').",
+                        },
+                    },
+                    required: ["reason"],
                 } as any,
             },
         ],
@@ -80,7 +93,7 @@ export const tools: Tool[] = [
 
 // Implementation of tools
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function executeToolCall(functionCall: { name: string; args: any }) {
+export async function executeToolCall(functionCall: { name: string; args: any }, context?: { phoneNumber?: string }) {
     const { name, args } = functionCall;
 
     switch (name) {
@@ -129,6 +142,25 @@ export async function executeToolCall(functionCall: { name: string; args: any })
                     content: r.content
                 })),
                 message: `Encontré ${results.length} resultado(s) relevante(s).`
+            };
+        }
+
+        case "escalateToHuman": {
+            const { reason } = args;
+            const { phoneNumber } = context || {};
+
+            if (phoneNumber) {
+                await db.collection("conversations").doc(phoneNumber).set({
+                    status: "human_needed",
+                    escalationReason: reason,
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+            }
+
+            return {
+                success: true,
+                message: "Conversation escalated to human agent. A representative will contact you shortly.",
+                transferring: true
             };
         }
 

@@ -3,6 +3,21 @@
 import { getModel, tools, executeToolCall } from "@/lib/gemini";
 import { db } from "@/lib/firebase-admin";
 
+export async function getTestSettings() {
+    try {
+        if (!db) throw new Error("Firestore DB not available");
+        const settingsDoc = await db.collection("settings").doc("main").get();
+        const settings = settingsDoc.data();
+        return {
+            aiModel: settings?.aiModel || "gemini-flash-latest",
+            systemPrompt: settings?.systemPrompt || "Eres Lysandra..."
+        };
+    } catch (error) {
+        console.error("Error fetching settings:", error);
+        return { aiModel: "Error", systemPrompt: "Error" };
+    }
+}
+
 export async function sendMessageToAI(message: string, history: { role: "user" | "model"; content: string }[]) {
     try {
         console.log("Laboratorio IA: Recibiendo mensaje:", message);
@@ -57,7 +72,7 @@ Siempre responde en español de manera profesional y amigable.`;
 
             const functionResponses = await Promise.all(
                 functionCalls.map(async (fc) => {
-                    const toolResult = await executeToolCall(fc);
+                    const toolResult = await executeToolCall(fc, { phoneNumber: "test-user" });
                     return {
                         functionResponse: {
                             name: fc.name,

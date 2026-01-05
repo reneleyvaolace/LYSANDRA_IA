@@ -16,7 +16,7 @@ import {
     BrainCircuit,
     History
 } from "lucide-react";
-import { sendMessageToAI } from "./actions";
+import { sendMessageToAI, getTestSettings } from "./actions";
 
 interface Message {
     role: "user" | "model";
@@ -28,7 +28,16 @@ export default function TestPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
+    const [currentModel, setCurrentModel] = useState<string>("Cargando...");
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const settings = await getTestSettings();
+            setCurrentModel(settings.aiModel);
+        };
+        fetchSettings();
+    }, []);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -108,9 +117,9 @@ export default function TestPage() {
                                 <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center animate-pulse">
                                     <BrainCircuit className="w-8 h-8 text-zinc-700" />
                                 </div>
-                                <div>
+                                <div className="space-y-2">
                                     <h3 className="text-xl font-bold text-white">Consola de Pruebas</h3>
-                                    <p className="text-zinc-500 max-w-sm mt-2">
+                                    <p className="text-zinc-500 max-w-sm mx-auto text-sm leading-relaxed">
                                         Inicia una conversación para validar cómo responde Lysandra a diferentes escenarios.
                                         Este chat usa las instrucciones configuradas en "Entrenamiento IA".
                                     </p>
@@ -128,11 +137,9 @@ export default function TestPage() {
                                     {msg.role === 'user' ? (
                                         <User className="w-5 h-5 text-white" />
                                     ) : (
-                                        <img
-                                            src="/images/lysandra-avatar.png"
-                                            alt="Lysandra AI"
-                                            className="w-full h-full object-cover"
-                                        />
+                                        <div className="w-full h-full bg-purple-600/20 flex items-center justify-center">
+                                            <Bot className="w-5 h-5 text-purple-400" />
+                                        </div>
                                     )}
                                 </div>
                                 <div className={`max-w-[80%] space-y-1 ${msg.role === 'user' ? 'items-end text-right' : 'items-start text-left'}`}>
@@ -143,7 +150,7 @@ export default function TestPage() {
                                         {msg.role === 'user' ? (
                                             msg.content
                                         ) : (
-                                            <div className="markdown-content">
+                                            <div className="markdown-content prose prose-invert prose-sm max-w-none">
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
                                                     rehypePlugins={[rehypeHighlight]}
@@ -162,12 +169,8 @@ export default function TestPage() {
 
                         {isTyping && (
                             <div className="flex gap-4 items-center">
-                                <div className="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center shrink-0 animate-pulse overflow-hidden">
-                                    <img
-                                        src="/images/lysandra-avatar.png"
-                                        alt="Lysandra AI"
-                                        className="w-full h-full object-cover"
-                                    />
+                                <div className="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center shrink-0 animate-pulse">
+                                    <Bot className="w-5 h-5 text-purple-400" />
                                 </div>
                                 <div className="flex gap-1.5 p-4 bg-zinc-900/50 rounded-2xl border border-white/5">
                                     <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
@@ -212,7 +215,9 @@ export default function TestPage() {
                         <div className="space-y-4">
                             <div>
                                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Modelo</p>
-                                <p className="text-xs text-white font-mono bg-white/5 p-2 rounded">gemini-2.0-flash</p>
+                                <p className="text-xs text-white font-mono bg-white/5 p-2 rounded truncate" title={currentModel}>
+                                    {currentModel}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">System Instruction</p>
@@ -237,11 +242,11 @@ export default function TestPage() {
                             </li>
                             <li className="flex gap-2">
                                 <span className="text-purple-500">•</span>
-                                Los Function Calls (Citas) están activos en este entorno.
+                                Los Function Calls (KB Search) están activos.
                             </li>
                             <li className="flex gap-2">
                                 <span className="text-purple-500">•</span>
-                                Úsalo para probar prompts negativos o límites éticos.
+                                El modelo puede variar según el Tier configurado.
                             </li>
                         </ul>
                     </div>
