@@ -10,11 +10,13 @@ export async function getTestSettings() {
         const settings = settingsDoc.data();
         return {
             aiModel: settings?.aiModel || "gemini-flash-latest",
-            systemPrompt: settings?.systemPrompt || "Eres Lysandra..."
+            systemPrompt: settings?.systemPrompt || "Eres Lysandra...",
+            agentName: settings?.agentName || "Lysandra",
+            agentImage: settings?.agentImage || "/avatars/lysandra.webp"
         };
     } catch (error) {
         console.error("Error fetching settings:", error);
-        return { aiModel: "Error", systemPrompt: "Error" };
+        return { aiModel: "Error", systemPrompt: "Error", agentName: "Lysandra", agentImage: "/avatars/lysandra.webp" };
     }
 }
 
@@ -26,7 +28,11 @@ export async function sendMessageToAI(message: string, history: { role: "user" |
         // 1. Get current system prompt and model
         const settingsDoc = await db.collection("settings").doc("main").get();
         const settings = settingsDoc.data();
-        const systemPrompt = settings?.systemPrompt || "Eres Lysandra, una asistente de CoreAura.";
+        const agentName = settings?.agentName || "Lysandra";
+        const basePrompt = settings?.systemPrompt || `Eres ${agentName}, una asistente de CoreAura.`;
+
+        // Inyectar nombre si el prompt no lo menciona explícitamente de forma dinámica
+        const systemPrompt = `Tu nombre es ${agentName}. ${basePrompt}`;
         const aiModel = settings?.aiModel || "gemini-flash-latest";
 
         const enhancedSystemPrompt = `${systemPrompt}
@@ -41,6 +47,13 @@ IMPORTANTE: Tienes acceso a una base de conocimiento sobre CoreAura. Cuando el u
 - Cualquier dato sobre CoreAura
 
 Debes usar la función 'searchKnowledgeBase' para obtener información precisa y actualizada.
+
+MANEJO DE FECHAS Y HORAS:
+- SIEMPRE usa 'getCurrentDateTime' ANTES de agendar citas o hablar sobre fechas relativas.
+- NO asumas la fecha actual. SIEMPRE consulta primero con getCurrentDateTime.
+- Cuando el usuario diga "mañana", "la próxima semana", "el lunes", etc., primero obtén la fecha actual.
+- Todas las citas deben agendarse en zona horaria de México (America/Mexico_City).
+- Formato de fechas para agendar: YYYY-MM-DDTHH:mm:ss (ISO 8601).
 
 Siempre responde en español de manera profesional y amigable.`;
 

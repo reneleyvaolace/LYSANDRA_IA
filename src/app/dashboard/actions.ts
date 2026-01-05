@@ -20,6 +20,13 @@ export interface DashboardMetrics {
         tokensUsed: string;
     };
     dailyInteractions: { date: string; count: number }[];
+    appointments: {
+        id: string;
+        clientName: string;
+        date: string;
+        type: string;
+        status: string;
+    }[];
 }
 
 export async function getDashboardData(): Promise<DashboardMetrics> {
@@ -54,16 +61,37 @@ export async function getDashboardData(): Promise<DashboardMetrics> {
             });
         });
 
-        // 3. Daily Interactions (Last 7 days mock for UI)
-        const dailyInteractions = [
-            { date: "Lun", count: 12 },
-            { date: "Mar", count: 18 },
-            { date: "Mie", count: 15 },
-            { date: "Jue", count: 25 },
-            { date: "Vie", count: 22 },
-            { date: "Sab", count: 30 },
-            { date: "Dom", count: 28 },
-        ];
+        // 3. Get Appointments
+        const appointments: DashboardMetrics["appointments"] = apptsSnap.docs.map(doc => ({
+            id: doc.id,
+            clientName: doc.data().clientName || doc.data().name || "Cliente",
+            date: doc.data().date || new Date().toISOString(),
+            type: doc.data().type || "General",
+            status: doc.data().status || "pending"
+        }));
+
+        // 4. Get Real Daily Interactions (Last 7 days)
+        const dailyInteractions = [];
+        const days = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+        const now = new Date();
+
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(now.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+
+            // Count conversations updated on this day
+            // Note: In a production app, you might want a specialized 'stats' collection
+            const dayCount = (await db.collection("conversations")
+                .where("updatedAt", ">=", `${dateStr}T00:00:00`)
+                .where("updatedAt", "<=", `${dateStr}T23:59:59`)
+                .get()).size;
+
+            dailyInteractions.push({
+                date: days[d.getDay()],
+                count: dayCount
+            });
+        }
 
         return {
             totalInteractions,
@@ -78,7 +106,8 @@ export async function getDashboardData(): Promise<DashboardMetrics> {
                 uptime: "99.9%",
                 tokensUsed: "12,450"
             },
-            dailyInteractions
+            dailyInteractions,
+            appointments
         };
     } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -89,7 +118,31 @@ export async function getDashboardData(): Promise<DashboardMetrics> {
             successRate: 0,
             recentActivity: [],
             modelHealth: { latency: "0ms", uptime: "0%", tokensUsed: "0" },
-            dailyInteractions: []
+            dailyInteractions: [],
+            appointments: []
         };
+    }
+}
+
+export async function deleteAppointment(id: string) {
+    try {
+        await db.collection("appointments").doc(id).delete();
+        return { success: true };
+    } catch (error) {
+        console.error("Error deleting appointment:", error);
+        return { success: false, error: "Failed to delete" };
+    }
+}
+
+export async function updateAppointment(id: string, data: Partial<DashboardMetrics["appointments"][0]>) {
+    try {
+        await db.collection("appointments").doc(id).update({
+            ...data,
+            updatedAt: new Date().toISOString()
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Error updating appointment:", error);
+        return { success: false, error: "Failed to update" };
     }
 }

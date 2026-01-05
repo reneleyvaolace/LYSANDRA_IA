@@ -10,8 +10,17 @@ import {
     Activity,
     Calendar,
     Clock,
-    RefreshCw
+    RefreshCw,
+    Pencil,
+    CalendarClock,
+    Trash2,
+    CheckCircle2,
+    XCircle,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
+import { format, addMonths, startOfMonth, addDays, getDay } from "date-fns";
+import { es } from "date-fns/locale";
 import {
     Table,
     TableBody,
@@ -21,7 +30,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { getDashboardData, DashboardMetrics } from "./actions";
+import { getDashboardData, DashboardMetrics, deleteAppointment, updateAppointment } from "./actions";
 
 interface Appointment {
     id: string;
@@ -36,18 +45,20 @@ export default function DashboardPage() {
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [activeTab, setActiveTab] = useState("resumen");
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
+    const [isDeletingApt, setIsDeletingApt] = useState<Appointment | null>(null);
+    const [newDateInput, setNewDateInput] = useState("");
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [calendarView, setCalendarView] = useState(new Date());
 
     const loadData = async () => {
         setIsLoading(true);
         const dashboardData = await getDashboardData();
         setData(dashboardData);
 
-        // Use real appointments from data if possible, or mock for now if action doesn't return list
-        // (Improving the action to return limited list for summary)
-        setAppointments([
-            { id: "1", clientName: "Juan Pérez", date: new Date().toISOString(), type: "Consultoría IA", status: "confirmed" },
-            { id: "2", clientName: "Maria García", date: new Date().toISOString(), type: "Soporte Técnico", status: "pending" },
-        ]);
+        if (dashboardData.appointments) {
+            setAppointments(dashboardData.appointments);
+        }
         setIsLoading(false);
     };
 
@@ -215,7 +226,8 @@ export default function DashboardPage() {
                                 <TableHead className="text-zinc-400">Prospecto</TableHead>
                                 <TableHead className="text-zinc-400">Fecha / Hora</TableHead>
                                 <TableHead className="text-zinc-400">Servicio</TableHead>
-                                <TableHead className="text-zinc-400 text-right">Estado</TableHead>
+                                <TableHead className="text-zinc-400">Estado</TableHead>
+                                <TableHead className="text-zinc-400 text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -231,13 +243,43 @@ export default function DashboardPage() {
                                     <TableCell>
                                         <span className="text-zinc-300 bg-white/5 px-2 py-1 rounded-md text-xs">{apt.type}</span>
                                     </TableCell>
-                                    <TableCell className="text-right">
+                                    <TableCell>
                                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${apt.status === 'confirmed'
                                             ? 'bg-green-500/10 text-green-400 border border-green-500/20 glow-green'
-                                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                            : apt.status === 'cancelled'
+                                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                                             }`}>
-                                            {apt.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
+                                            {apt.status === 'confirmed' ? 'Confirmada' : apt.status === 'cancelled' ? 'Cancelada' : 'Pendiente'}
                                         </span>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <button
+                                                title="Reagendar"
+                                                onClick={() => {
+                                                    setSelectedApt(apt);
+                                                    setNewDateInput(new Date(apt.date).toISOString().slice(0, 16));
+                                                }}
+                                                className="p-2 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all"
+                                            >
+                                                <CalendarClock className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                title="Marcar como Confirmada"
+                                                onClick={() => updateAppointment(apt.id, { status: "confirmed" }).then(() => loadData())}
+                                                className="p-2 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400 hover:text-green-400 hover:border-green-500/30 transition-all"
+                                            >
+                                                <CheckCircle2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                title="Eliminar"
+                                                onClick={() => setIsDeletingApt(apt)}
+                                                className="p-2 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400 hover:text-red-400 hover:border-red-500/30 transition-all"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -316,6 +358,203 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Reagendado con Calendario Visual */}
+            {selectedApt && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-300"
+                        onClick={() => setSelectedApt(null)}
+                    />
+                    <div className="relative glass w-full max-w-2xl rounded-[3rem] border-white/10 p-10 shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+                        {/* Background Decoration */}
+                        <div className="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 blur-[100px] rounded-full" />
+
+                        <div className="relative z-10 space-y-8">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-4 rounded-[1.5rem] bg-gradient-to-br from-cyan-500 to-purple-600 text-white shadow-lg glow-cyan">
+                                        <CalendarClock className="w-8 h-8" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-black tracking-tight text-white">Reagendar Cita</h3>
+                                        <p className="text-zinc-500 font-medium text-sm">Ajusta la fecha para {selectedApt.clientName}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedApt(null)}
+                                    className="p-2 hover:bg-white/10 rounded-full transition-all group"
+                                >
+                                    <XCircle className="w-8 h-8 text-zinc-700 group-hover:text-red-400" />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                {/* Selector Visual de Calendario */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between px-2">
+                                        <h4 className="font-bold text-zinc-200 capitalize">
+                                            {format(calendarView, 'MMMM yyyy', { locale: es })}
+                                        </h4>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setCalendarView(addMonths(calendarView, -1))} className="p-1.5 hover:bg-white/10 rounded-lg border border-white/5 text-zinc-400">
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => setCalendarView(addMonths(calendarView, 1))} className="p-1.5 hover:bg-white/10 rounded-lg border border-white/5 text-zinc-400">
+                                                <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                                        {['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'].map(d => (
+                                            <span key={d} className="text-[10px] font-bold text-zinc-600 uppercase">{d}</span>
+                                        ))}
+                                    </div>
+
+                                    <div className="grid grid-cols-7 gap-1">
+                                        {Array.from({ length: 35 }).map((_, i) => {
+                                            const monthStart = startOfMonth(calendarView);
+                                            const day = addDays(monthStart, i - (getDay(monthStart) === 0 ? 6 : getDay(monthStart) - 1));
+                                            const isSelected = newDateInput.startsWith(format(day, 'yyyy-MM-dd'));
+                                            const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                                            const isCurrentMonth = format(day, 'MM') === format(calendarView, 'MM');
+
+                                            return (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => {
+                                                        const currentTime = newDateInput.includes('T') ? newDateInput.split('T')[1] : "10:00";
+                                                        setNewDateInput(`${format(day, 'yyyy-MM-dd')}T${currentTime}`);
+                                                    }}
+                                                    className={`aspect-square rounded-xl text-xs font-bold transition-all flex items-center justify-center border ${isSelected
+                                                            ? "bg-cyan-500 text-white border-cyan-400 shadow-lg"
+                                                            : isToday
+                                                                ? "bg-white/5 text-cyan-400 border-white/10"
+                                                                : !isCurrentMonth
+                                                                    ? "text-zinc-800 border-transparent pointer-events-none"
+                                                                    : "hover:bg-white/5 text-zinc-500 border-transparent"
+                                                        }`}
+                                                >
+                                                    {format(day, 'd')}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Selector de Hora y Resumen */}
+                                <div className="space-y-6">
+                                    <div className="space-y-4">
+                                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest block px-1">Seleccionar Hora</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(h => (
+                                                <button
+                                                    key={h}
+                                                    onClick={() => {
+                                                        const currentDate = newDateInput.includes('T') ? newDateInput.split('T')[1] : format(new Date(), 'yyyy-MM-dd');
+                                                        setNewDateInput(`${newDateInput.split('T')[0]}T${h}`);
+                                                    }}
+                                                    className={`py-3 rounded-xl text-xs font-bold transition-all border ${newDateInput.includes(h)
+                                                            ? "bg-purple-600 text-white border-purple-400 glow-purple"
+                                                            : "bg-zinc-950 text-zinc-500 border-white/5 hover:border-white/20"
+                                                        }`}
+                                                >
+                                                    {h}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-6 rounded-[2rem] bg-zinc-950 border border-white/5 space-y-3 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 blur-2xl rounded-full" />
+                                        <div className="flex justify-between items-center relative z-10">
+                                            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Resumen del Cambio</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
+                                        </div>
+                                        <div className="space-y-1 relative z-10">
+                                            <p className="text-sm font-bold text-zinc-200 capitalize">
+                                                {newDateInput ? format(new Date(newDateInput.replace(' ', 'T')), "EEEE dd 'de' MMMM", { locale: es }) : '---'}
+                                            </p>
+                                            <p className="text-3xl font-black text-cyan-400">
+                                                {newDateInput.includes('T') ? newDateInput.split('T')[1] : '00:00'}
+                                                <span className="text-[10px] text-zinc-600 font-bold ml-2 tracking-widest uppercase">hrs</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 pt-4 relative z-10">
+                                <button
+                                    onClick={() => setSelectedApt(null)}
+                                    className="flex-1 px-8 py-5 rounded-2xl bg-zinc-900 text-zinc-400 font-bold hover:bg-zinc-800 transition-all border border-white/5"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    disabled={isUpdating || !newDateInput}
+                                    onClick={async () => {
+                                        setIsUpdating(true);
+                                        const res = await updateAppointment(selectedApt.id, { date: new Date(newDateInput).toISOString() });
+                                        if (res.success) {
+                                            await loadData();
+                                            setSelectedApt(null);
+                                        }
+                                        setIsUpdating(false);
+                                    }}
+                                    className="flex-1 px-8 py-5 rounded-2xl bg-white text-black font-black hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-cyan-500/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isUpdating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <>Confirmar Reagendado <Zap className="w-5 h-5 fill-black" /></>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Confirmación de Eliminación Premium */}
+            {isDeletingApt && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/90 backdrop-blur-xl animate-in fade-in duration-500"
+                        onClick={() => setIsDeletingApt(null)}
+                    />
+                    <div className="relative glass w-full max-w-sm rounded-[3rem] border-red-500/20 p-12 bg-gradient-to-b from-red-500/10 to-transparent shadow-[0_0_50px_rgba(239,68,68,0.1)] animate-in slide-in-from-bottom-12 duration-500 text-center space-y-10">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-red-500/20 blur-2xl rounded-full animate-pulse" />
+                            <div className="relative w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
+                                <Trash2 className="w-12 h-12 text-red-500" />
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            <h3 className="text-3xl font-black text-white">¿Destruir Registro?</h3>
+                            <p className="text-sm text-zinc-400 leading-relaxed">
+                                Estás eliminando la cita de <span className="text-red-400 font-bold">{isDeletingApt.clientName}</span>. Esta acción es irreversible en el núcleo de Lysandra.
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-4">
+                            <button
+                                onClick={async () => {
+                                    const res = await deleteAppointment(isDeletingApt.id);
+                                    if (res.success) {
+                                        await loadData();
+                                        setIsDeletingApt(null);
+                                    }
+                                }}
+                                className="w-full py-5 rounded-2xl bg-red-500 text-white font-black hover:bg-red-600 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-red-500/20"
+                            >
+                                Sí, Eliminar de Firestore
+                            </button>
+                            <button
+                                onClick={() => setIsDeletingApt(null)}
+                                className="w-full py-5 rounded-2xl bg-white/5 text-zinc-500 font-bold hover:bg-white/10 transition-all border border-white/5"
+                            >
+                                No, Conservar Cita
+                            </button>
                         </div>
                     </div>
                 </div>

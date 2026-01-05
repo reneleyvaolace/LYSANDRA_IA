@@ -58,18 +58,33 @@ export async function POST(req: NextRequest) {
         // 3. System Prompt & Settings
         interface Settings {
             companyName: string;
+            agentName: string;
             systemPrompt: string;
             aiModel: string;
         }
         const settingsSnap = await db.collection("settings").doc("main").get();
         const settings = (settingsSnap.exists ? settingsSnap.data() : {
             companyName: "CoreAura",
+            agentName: "Lysandra",
             systemPrompt: "Eres Lysandra, la asistente de IA de CoreAura. Eres profesional, eficiente y amable. Ayudas a los clientes a agendar citas y resolver dudas sobre tecnología. Usa las herramientas disponibles para consultar disponibilidad y agendar citas.",
             aiModel: "gemini-flash-latest"
         }) as Settings;
 
+        const agentName = settings.agentName || "Lysandra";
+        const basePrompt = settings.systemPrompt;
+        const dateTimeInstructions = `
+
+MANEJO DE FECHAS Y HORAS:
+- SIEMPRE usa 'getCurrentDateTime' ANTES de agendar citas o hablar sobre fechas.
+- NO asumas la fecha actual. SIEMPRE consulta primero.
+- Cuando el usuario diga "mañana", "próximo lunes", etc., primero obtén la fecha actual.
+- Zona horaria: America/Mexico_City.
+- Formato: YYYY-MM-DDTHH:mm:ss (ISO 8601).
+`;
+        const finalPrompt = `Tu nombre es ${agentName}. ${basePrompt}${dateTimeInstructions}`;
+
         // 4. Call Gemini
-        const model = getModel(settings.systemPrompt, settings.aiModel || "gemini-flash-latest");
+        const model = getModel(finalPrompt, settings.aiModel || "gemini-flash-latest");
         const chat = model.startChat({
             history: history,
             generationConfig: { maxOutputTokens: 500 },

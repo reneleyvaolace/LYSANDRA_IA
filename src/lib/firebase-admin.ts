@@ -21,6 +21,7 @@ if (!admin.apps.length) {
           clientEmail: clientEmail,
           privateKey: privateKey,
         }),
+        storageBucket: `${projectId}.firebasestorage.app`
       });
       console.log("Firebase initialized successfully with Project ID:", projectId);
     } else {
@@ -32,4 +33,5 @@ if (!admin.apps.length) {
 }
 
 export const db = admin.apps.length > 0 ? admin.firestore() : null as unknown as admin.firestore.Firestore;
+export const storage = admin.apps.length > 0 ? admin.storage() : null as unknown as admin.storage.Storage;
 

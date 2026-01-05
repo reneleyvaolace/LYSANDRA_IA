@@ -87,6 +87,15 @@ export const tools: Tool[] = [
                     required: ["reason"],
                 } as any,
             },
+            {
+                name: "getCurrentDateTime",
+                description: "Gets the current date and time. Use this ALWAYS before scheduling appointments or when the user asks about dates/times. Returns current date/time in ISO 8601 format with Mexico City timezone.",
+                parameters: {
+                    type: "object",
+                    properties: {},
+                    required: [],
+                } as any,
+            },
         ],
     },
 ];
@@ -97,6 +106,41 @@ export async function executeToolCall(functionCall: { name: string; args: any },
     const { name, args } = functionCall;
 
     switch (name) {
+        case "getCurrentDateTime": {
+            // Obtener configuración de zona horaria y formatos desde Firestore
+            const settingsDoc = await db.collection("settings").doc("main").get();
+            const settings = settingsDoc.data();
+            const timezone = settings?.timezone || 'America/Mexico_City';
+            const dateFormat = settings?.dateFormat || 'DD/MM/YYYY';
+            const timeFormat = settings?.timeFormat || '24h';
+
+            const now = new Date();
+
+            // Formato legible con la zona horaria configurada
+            const formattedTime = new Intl.DateTimeFormat('es-MX', {
+                timeZone: timezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: timeFormat === '12h',
+                weekday: 'long'
+            }).format(now);
+
+            // ISO format para uso interno
+            const isoTime = now.toLocaleString('sv-SE', { timeZone: timezone });
+
+            return {
+                currentDateTime: isoTime,
+                formatted: formattedTime,
+                timezone: timezone,
+                dateFormat: dateFormat,
+                timeFormat: timeFormat,
+                timestamp: now.getTime()
+            };
+        }
         case "checkAvailability": {
             const { date } = args;
             const snapshot = await db.collection("appointments")
